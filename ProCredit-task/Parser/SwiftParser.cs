@@ -1,20 +1,24 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
+using NLog;
+using ILogger = NLog.ILogger;
 
 namespace ProCredit_task.Parser;
 
 public class SwiftParser
 {
+    private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
     private readonly string _message;
 
     public SwiftParser(IFormFile file)
     {
+        _logger.Debug("SwiftParser Initialized");
         _message = ConvertFileContentToString(file);
-        //Console.WriteLine(_message);
     }
 
-    private static string ConvertFileContentToString(IFormFile file)
+    private string ConvertFileContentToString(IFormFile file)
     {
+        _logger.Debug("Converting the file contents to a string");
         var sb = new StringBuilder();
         using (var reader = new StreamReader(file.OpenReadStream()))
         {
@@ -23,12 +27,13 @@ public class SwiftParser
                 sb.AppendLine(reader.ReadLine());
             }
         }
-
+        _logger.Debug("Conversion finished. Returning the string.");
         return sb.ToString();
     }
 
     public Dictionary<string, string> ParseSwiftMessage()
     {
+        _logger.Debug("Parsing the message contents into different blocks");
         var dict = new Dictionary<string, string>();
         var block1 = ExtractBlockBase(_message, 1); //basic header info
         var block2 = ExtractBlockBase(_message, 2); //application header info
@@ -45,6 +50,15 @@ public class SwiftParser
         var block5 = ExtractBlock5(block5Base); //block5 - trailer info; MAC, CHK
         dict.Add("MAC", block5["MAC"]);
         dict.Add("CHK", block5["CHK"]);
+
+        if (dict.Count == 0)
+        {
+            _logger.Debug("Invalid content in the file.");
+        }
+        else
+        {
+            _logger.Debug("Blocks successfully parsed. Returning a dictionary with the relevant block information");
+        }
 
         return dict;
     }
