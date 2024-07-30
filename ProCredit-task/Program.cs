@@ -15,7 +15,6 @@ public class Program
         logger.Debug("Logger initialized");
 
         var builder = WebApplication.CreateBuilder(args);
-        //var connString = builder.Configuration.GetConnectionString("DefaultConnection");
 
         // Add services to the container.
         builder.Services.AddScoped<IDatabase>(sp =>

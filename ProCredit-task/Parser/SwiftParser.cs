@@ -1,18 +1,18 @@
 ﻿using System.Text;
 using System.Text.RegularExpressions;
 using NLog;
-using ILogger = NLog.ILogger;
+using ProCredit_task.Exceptions;
 
 namespace ProCredit_task.Parser;
 
 public class SwiftParser
 {
-    private readonly ILogger _logger = LogManager.GetCurrentClassLogger();
+    private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private readonly string _message;
 
     public SwiftParser(IFormFile file)
     {
-        _logger.Debug("SwiftParser Initialized");
+        _logger.Debug("NLog injected in SwiftParser");
         _message = ConvertFileContentToString(file);
     }
 
@@ -27,6 +27,7 @@ public class SwiftParser
                 sb.AppendLine(reader.ReadLine());
             }
         }
+
         _logger.Debug("Conversion finished. Returning the string.");
         return sb.ToString();
     }
@@ -37,12 +38,17 @@ public class SwiftParser
         var dict = new Dictionary<string, string>();
         var block1 = ExtractBlockBase(_message, 1); //basic header info
         var block2 = ExtractBlockBase(_message, 2); //application header info
-        dict.Add("BasicHeaderInfo", block1);
-        dict.Add("ApplicationHeaderInfo", block2);
-
         var block4Base = ExtractBlockBase(_message, 4);
         var block5Base = ExtractBlockBase(_message, 5);
 
+        if (block1.Length == 0 && block2.Length == 0 && block4Base.Length == 0 && block5Base.Length == 0)
+        {
+            _logger.Error("Invalid content in the file.");
+            throw new InvalidMessageContentException();
+        }
+
+        dict.Add("BasicHeaderInfo", block1);
+        dict.Add("ApplicationHeaderInfo", block2);
         var block4 = ExtractLargerBlock(block4Base); //block4 - message texts; TransactionRef, RelatedRef, Narrative
         dict.Add("TransactionRef", block4["TransactionRef"]);
         dict.Add("RelatedRef", block4["RelatedRef"]);
@@ -51,14 +57,7 @@ public class SwiftParser
         dict.Add("MAC", block5["MAC"]);
         dict.Add("CHK", block5["CHK"]);
 
-        if (dict.Count == 0)
-        {
-            _logger.Debug("Invalid content in the file.");
-        }
-        else
-        {
-            _logger.Debug("Blocks successfully parsed. Returning a dictionary with the relevant block information");
-        }
+        _logger.Debug("Blocks successfully parsed. Returning a dictionary with the relevant block information");
 
         return dict;
     }

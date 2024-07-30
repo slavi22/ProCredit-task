@@ -1,8 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using ProCredit_task.Contracts;
+using ProCredit_task.Exceptions;
 using ProCredit_task.Extensions;
 using ProCredit_task.Models;
 using ProCredit_task.Parser;
@@ -24,19 +23,20 @@ public class SwiftMessageController : Controller
     }
 
     /// <summary>
-    /// Parses the swift message and uploads it to the SQLite database
+    /// Parses the swift message and saves it to the SQLite database
     /// </summary>
     /// <param name="swiftMessageFile"></param>
-    /// <returns>Returns the newly created message</returns>
+    /// <returns>Returns a status code with a json response</returns>
     /// <response code="201">Returns the newly created message</response>
-    /// <response code="400">Responds with 400 if the file type is of unsupported type</response>
+    /// <response code="400">Responds with 400 if the file type is of unsupported type or the content in it doesn't correspond to the "MT799" standard</response>
     [HttpPost]
     [Route("UploadMessage")]
     [Produces("application/json")]
     [ProducesResponseType(typeof(MessageModel), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UploadSwiftMessage(
-        [AllowedExtensions([".txt"], ErrorMessage = "Invalid file type. The only supported file type is '.txt'")] [Required]
+        [AllowedExtensions([".txt"], ErrorMessage = "Invalid file type. The only supported file type is '.txt'")]
+        [Required]
         IFormFile swiftMessageFile)
     {
         try
@@ -47,13 +47,12 @@ public class SwiftMessageController : Controller
             _logger.LogDebug($"Successfully added a message with id - \"{result.Id}\" to the database!");
             return StatusCode(201, result);
         }
-        catch (KeyNotFoundException)
+        catch (InvalidMessageContentException)
         {
             //https://stackoverflow.com/a/70922358
             ModelState.AddModelError("swiftMessageFile", "Invalid content in the file.");
             //https://stackoverflow.com/a/56126119
             return ValidationProblem(ModelState);
         }
-
     }
 }
